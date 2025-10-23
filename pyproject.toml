@@ -1,0 +1,112 @@
+[build-system]
+requires = ["uv_build"]
+build-backend = "uv_build"
+
+[project]
+name = "datamodel"
+version = "0.1.0"
+description = "Collection of objects that represent Python datamodel"
+readme = "README.md"
+authors = [{ name = "Arseny Boykov (Bobronium)", email = "hi@bobronium.me" }]
+requires-python = ">=3.10"
+license = { text = "MIT" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "License :: OSI Approved :: MIT License",
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries",
+]
+
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/Bobronium/datamodel"
+Source = "https://github.com/Bobronium/datamodel"
+Issues = "https://github.com/Bobronium/datamodel/issues"
+
+[project.optional-dependencies]
+dev = [
+    "datamodel[lint]",
+    "datamodel[typecheck]",
+    "datamodel[test]",
+    "datamodel[docs]",
+    
+]
+lint = [
+    "ruff>=0.5",
+]
+typecheck = [
+    "mypy>=1.10",
+    "pyright>=1.1.400",
+]
+test = [
+    "pytest>=8",
+    "pytest-cov>=5",
+    "coverage>=7.4",
+    "pytest_assert_type>=0.1.2",
+    "typing-extensions; python_version < '3.12'",
+]
+
+docs = [
+    "mkdocs-material",
+    "mkdocstrings[python]",
+    "mkdocs-autorefs",
+    "mkdocs-section-index",
+]
+thirdparty = [
+    "msgspec>=0.19.0",
+    "networkx>=3.4.2",
+    "numpy>=2.2.6",
+    "pandas>=2.3.3",
+    "pydantic>=2.12.3",
+    "sympy>=1.14.0",
+    "torch>=2.9.0",
+]
+
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --cov=src"
+
+[tool.coverage.run]
+source = ["src"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "@overload",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["ALL"]
+extend-safe-fixes = ["ALL"]
+unfixable = ["T201"]
+ignore = [
+    "D",
+    "C",
+    "COM812",
+    "ISC001",
+    "S101",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "ANN", "ERA", "PLW", "PT0", "N"]
+
+[tool.mypy]
+explicit_package_bases = true
+strict = true
+ignore_missing_imports = true
