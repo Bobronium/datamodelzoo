@@ -150,4 +150,21 @@ def thirdparty_cases() -> tuple[Case, ...]:
 
     out += [Case("thirdparty:networkx:digraph_2cycle", factory=_networkx_digraph_2cycle)]
 
+    def _get_jsonschema():
+        import jsonschema
+
+        return jsonschema
+
+    out.extend(
+        (
+            Case(
+                "thirdparty:jsonschema:Draft202012Validator.META_SCHEMA",
+                factory=lambda: _get_jsonschema().Draft202012Validator.META_SCHEMA,
+            ),
+            Case(
+                "thirdparty:jsonschema:Draft7Validator.META_SCHEMA",
+                factory=lambda: _get_jsonschema().Draft7Validator.META_SCHEMA,
+            ),
+        ),
+    )
     return tuple(out)
