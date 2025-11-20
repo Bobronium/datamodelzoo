@@ -5,6 +5,7 @@ import sys
 import types
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import cached_property
 from typing import Any, Literal, TypeVar
 
 
@@ -38,6 +39,17 @@ class Case:
     # Internal cache for lazy construction
     _materialized: bool = dc.field(default=False, init=False, repr=False)
     _cache_value: Any = dc.field(default=None, init=False, repr=False)
+
+    def as_pytest_param(self):
+        import pytest
+
+        return pytest.param(self, id=self.name)
+
+    @cached_property
+    def keywords(self):
+        return (keywords := set(self.name.split(":"))) | set(
+            sub_keyword for keywords in keywords for sub_keyword in keywords.split("_")
+        )
 
     def _build(self) -> Any:
         if self.factory is not None:
