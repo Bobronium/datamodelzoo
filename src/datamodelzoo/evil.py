@@ -109,6 +109,10 @@ class EvilDictIterBadPairs:
     def items(self) -> "EvilDictIterBadPairs":
         return self
 
+    def __iter__(self) -> "EvilDictIterBadPairs":
+        # Make this a proper iterator so the dictiter path is actually hit.
+        return self
+
     def __next__(self) -> Any:
         # Yield a single 1-element tuple, then stop.
         if getattr(self, "_done", False):
@@ -214,9 +218,17 @@ class EvilDescriptorGetstate:
 class EvilDescriptorSetstate:
     """
     Object that exposes __setstate__ via a descriptor that raises on access.
+
+    Note: __getstate__ is provided so that reconstruction actually has
+    a non-None state, forcing the copying logic to look up __setstate__
+    and thus hit the descriptor.
     """
 
     __setstate__ = RaisingDescriptor()
+
+    def __getstate__(self) -> Any:
+        # Any non-None dummy state is enough.
+        return {"dummy": True}
 
 
 # ---------------------------------------------------------------------------
@@ -259,9 +271,14 @@ _deepcopy_cases = _wrap_in_containers(
     EvilDeepCopy(),
 )
 
+_deepcopy_no_memo_cases = _wrap_in_containers(
+    "evil:__deepcopy__-no-memo-arg",
+    EvilDeepCopyNoMemoArg(),
+)
+
 _reduce_args_cases = _wrap_in_containers(
-    "evil:__reduce__:args",
-    EvilReduceCallable(),
+    "evil:__reduce__:args-not-tuple",
+    EvilReduceArgs(),
 )
 
 _reduce_bad_tuple_raises_cases = _wrap_in_containers(
@@ -341,6 +358,7 @@ EVIL_CASES: tuple[Case, ...] = (
     *_reduce_non_callable_cases,
     # __deepcopy__ misbehaviour
     *_deepcopy_cases,
+    *_deepcopy_no_memo_cases,
     # copyreg dispatch-table reducer that returns invalid shape or raises
     *_copyreg_evil_cases,
     *_copyreg_evil_raises_cases,
