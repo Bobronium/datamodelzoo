@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+import copy
 
 from datamodelzoo import Case
 
@@ -43,6 +43,19 @@ def _bound_method_holder():
     inst.bound = inst.m  # attribute holding a bound method
     return inst
 
+class DeepcopyGatekeeper:
+    def __init__(self, error_type):
+        self.error_type = error_type
+        self.data = {"foo": [{"bar": {"baz"}}]}
+
+    def __deepcopy__(self, memo):
+        if type(memo) is not dict:
+            raise self.error_type
+        copied = object.__new__(DeepcopyGatekeeper)
+        copied.data = copy.deepcopy(self.data, memo)
+        copied.error_type = self.error_type
+        return copied
+
 
 class DeepcopyRuntimeError:
     """
@@ -76,4 +89,6 @@ CONSTRUCTED_OBJECTS: tuple[Case, ...] = (
     Case("alias:mixed_shared_combo", _alias_mixed_combo()),
     Case("func:bound_method_attr", _bound_method_holder()),
     Case("deepcopy:mutating_dict", build_mutating_dict),
+    Case("deepcopy:memo_type_guard:TypeError", DeepcopyGatekeeper(TypeError)),
+    Case("deepcopy:memo_type_guard:AssertionError", DeepcopyGatekeeper(AssertionError)),
 )
