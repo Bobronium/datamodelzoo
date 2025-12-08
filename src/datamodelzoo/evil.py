@@ -24,6 +24,20 @@ class EvilDeepCopyNoMemoArg:
         )
 
 
+class EvilDeepcopyGatekeeper:
+    def __init__(self, error_type):
+        self.error_type = error_type
+        self.data = {"foo": [{"bar": {"baz"}}]}
+
+    def __deepcopy__(self, memo):
+        if type(memo) is not dict:
+            raise self.error_type
+        copied = object.__new__(DeepcopyGatekeeper)
+        copied.data = copy.deepcopy(self.data, memo)
+        copied.error_type = self.error_type
+        return copied
+
+
 class EvilReduceArgs:
     def __reduce__(self) -> Any:
         return EvilReduceArgs, "not-a-tuple-of-args"
@@ -276,6 +290,16 @@ _deepcopy_no_memo_cases = _wrap_in_containers(
     EvilDeepCopyNoMemoArg(),
 )
 
+_deepcopy_gate_keeper_cases = (
+    *_wrap_in_containers(
+        "evil:deepcopy:memo_type_guard:TypeError",
+        EvilDeepcopyGatekeeper(TypeError),
+    ),
+    *_wrap_in_containers(
+        "evil:deepcopy:memo_type_guard:AssertionError", EvilDeepcopyGatekeeper(AssertionError)
+    ),
+)
+
 _reduce_args_cases = _wrap_in_containers(
     "evil:__reduce__:args-not-tuple",
     EvilReduceArgs(),
@@ -359,6 +383,7 @@ EVIL_CASES: tuple[Case, ...] = (
     # __deepcopy__ misbehaviour
     *_deepcopy_cases,
     *_deepcopy_no_memo_cases,
+    *_deepcopy_gate_keeper_cases,
     # copyreg dispatch-table reducer that returns invalid shape or raises
     *_copyreg_evil_cases,
     *_copyreg_evil_raises_cases,
