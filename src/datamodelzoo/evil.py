@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import collections
 import uuid
 from typing import Any, Iterator
 
@@ -27,6 +28,11 @@ class EvilDeepCopyNoMemoArg:
 class EvilReduceArgs:
     def __reduce__(self) -> Any:
         return EvilReduceArgs, "not-a-tuple-of-args"
+
+
+class EvilReduceDuckArgs:
+    def __reduce__(self) -> Any:
+        return EvilReduceArgs, []
 
 
 class EvilReduceRaises:
@@ -130,6 +136,91 @@ class EvilUsesDictIter:
     def __reduce__(self) -> Any:
         # constructor, args, state=None, listiter=None, dictiter=EvilDictIterBadPairs()
         return self.__class__, (), None, None, EvilDictIterBadPairs()
+
+
+# ---------------------------------------------------------------------------
+# Coercion path exercisers: objects that use duck-typed __reduce__ components
+# which aren't the exact types pickle demands but work in stdlib's copy.deepcopy
+# ---------------------------------------------------------------------------
+
+
+class EvilReduceListArgsThatWork:
+    """__reduce__ returns args as list — coerced to tuple via PySequence_Tuple."""
+
+    def __reduce__(self) -> Any:
+        return self.__class__, []
+
+
+class EvilNewObjExListArgs:
+    """__newobj_ex__ with list instead of tuple for positional args."""
+
+    def __reduce__(self) -> Any:
+        return copyreg.__newobj_ex__, (self.__class__, [], {})
+
+
+class EvilNewObjExMappingKwargs:
+    """__newobj_ex__ with UserDict instead of dict for keyword args."""
+
+    def __reduce__(self) -> Any:
+        return copyreg.__newobj_ex__, (self.__class__, (), collections.UserDict())
+
+
+class EvilDictStateUserDict:
+    """Reduce state is UserDict — applied via dict.update / PyDict_Merge."""
+
+    def __reduce__(self) -> Any:
+        return self.__class__, (), collections.UserDict({"x": 1})
+
+    def __eq__(self, other: object) -> bool:
+        return type(self) is type(other) and vars(self) == vars(other)
+
+    def __hash__(self) -> int:
+        return object.__hash__(self)
+
+
+class EvilSlotStateUserDict:
+    """Slot state is UserDict — applied via .items() iteration."""
+
+    __slots__ = ("x",)
+
+    def __reduce__(self) -> Any:
+        return self.__class__, (), (None, collections.UserDict({"x": 1}))
+
+    def __eq__(self, other: object) -> bool:
+        return type(self) is type(other) and getattr(self, "x", None) == getattr(other, "x", None)
+
+    def __hash__(self) -> int:
+        return object.__hash__(self)
+
+
+class _DictLikeBase:
+    """Minimal __setitem__ container for dictiter coercion tests."""
+
+    def __init__(self) -> None:
+        self._store: dict[str, Any] = {}
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        self._store[key] = value
+
+    def __eq__(self, other: object) -> bool:
+        return type(self) is type(other) and self._store == other._store  # type: ignore[attr-defined]
+
+    def __hash__(self) -> int:
+        return object.__hash__(self)
+
+
+class EvilDictIterListPairs(_DictLikeBase):
+    """dictiter yields list pairs — unpacked via PySequence_Fast."""
+
+    def __reduce__(self) -> Any:
+        return self.__class__, (), None, None, iter([["a", 1], ["b", 2]])
+
+
+class EvilDictIterTriples(_DictLikeBase):
+    """dictiter yields 3-element sequences — too many values to unpack."""
+
+    def __reduce__(self) -> Any:
+        return self.__class__, (), None, None, iter([("a", 1, "extra")])
 
 
 class EvilViaCopyreg:
@@ -266,6 +357,52 @@ def _wrap_in_containers(name: str, obj: Any) -> tuple[Case, ...]:
     return tuple(cases)
 
 
+# Coercion path: argtup as list (succeeds after coercion to tuple)
+_reduce_list_args_ok_cases = _wrap_in_containers(
+    "evil:__reduce__:list-args-coerced",
+    EvilReduceListArgsThatWork(),
+)
+
+_reduce_duck_args_cases = _wrap_in_containers(
+    "evil:__reduce__:duck-args-coerced",
+    EvilReduceDuckArgs(),
+)
+
+# Coercion path: __newobj_ex__ args/kwargs duck typing
+_newobj_ex_list_args_cases = _wrap_in_containers(
+    "evil:__newobj_ex__:list-args-coerced",
+    EvilNewObjExListArgs(),
+)
+
+_newobj_ex_mapping_kwargs_cases = _wrap_in_containers(
+    "evil:__newobj_ex__:mapping-kwargs-coerced",
+    EvilNewObjExMappingKwargs(),
+)
+
+# Coercion path: dict_state / slot_state as UserDict
+_dict_state_userdict_cases = _wrap_in_containers(
+    "evil:dict_state-userdict-coerced",
+    EvilDictStateUserDict(),
+)
+
+_slot_state_userdict_cases = _wrap_in_containers(
+    "evil:slot_state-userdict-coerced",
+    EvilSlotStateUserDict(),
+)
+
+# Coercion path: dictiter yields non-tuple sequences
+_dictiter_list_pairs_cases = _wrap_in_containers(
+    "evil:dictiter-list-pairs-coerced",
+    EvilDictIterListPairs(),
+)
+
+# Coercion failure: dictiter yields wrong-length sequences
+_dictiter_triples_cases = _wrap_in_containers(
+    "evil:dictiter-yields-triples",
+    EvilDictIterTriples(),
+)
+
+
 _deepcopy_cases = _wrap_in_containers(
     "evil:__deepcopy__",
     EvilDeepCopy(),
@@ -374,4 +511,13 @@ EVIL_CASES: tuple[Case, ...] = (
     *_descriptor_reduce_ex_cases,
     *_descriptor_getstate_cases,
     *_descriptor_setstate_cases,
+    # Coercion paths: duck-typed __reduce__ components that stdlib accepts
+    *_reduce_list_args_ok_cases,
+    *_reduce_duck_args_cases,
+    *_newobj_ex_list_args_cases,
+    *_newobj_ex_mapping_kwargs_cases,
+    *_dict_state_userdict_cases,
+    *_slot_state_userdict_cases,
+    *_dictiter_list_pairs_cases,
+    *_dictiter_triples_cases,
 )
