@@ -322,6 +322,20 @@ class EvilDescriptorSetstate:
         return {"dummy": True}
 
 
+class DeepcopyGatekeeper:
+    def __init__(self, error_type):
+        self.error_type = error_type
+        self.data = {"foo": [{"bar": {"baz"}}]}
+
+    def __deepcopy__(self, memo):
+        if type(memo) is not dict:
+            raise self.error_type
+        copied = object.__new__(DeepcopyGatekeeper)
+        copied.data = copy.deepcopy(self.data, memo)
+        copied.error_type = self.error_type
+        return copied
+
+
 # ---------------------------------------------------------------------------
 # Helper: build individual Case instances for all container types
 # ---------------------------------------------------------------------------
@@ -488,6 +502,15 @@ _descriptor_setstate_cases = _wrap_in_containers(
     EvilDescriptorSetstate(),
 )
 
+
+_memo_type_error = _wrap_in_containers(
+    "evil:__deepcopy__:memo_type_guard:TypeError", DeepcopyGatekeeper(TypeError)
+)
+
+_memo_assertion_error = _wrap_in_containers(
+    "evil:__deepcopy__:memo_type_guard:AssertionError", DeepcopyGatekeeper(AssertionError)
+)
+
 EVIL_CASES: tuple[Case, ...] = (
     # Bad __reduce__ tuples
     *_reduce_args_cases,
@@ -520,4 +543,6 @@ EVIL_CASES: tuple[Case, ...] = (
     *_slot_state_userdict_cases,
     *_dictiter_list_pairs_cases,
     *_dictiter_triples_cases,
+    *_memo_type_error,
+    *_memo_assertion_error,
 )
