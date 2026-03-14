@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import collections
+import copy
 import uuid
 from typing import Any, Iterator
 
@@ -504,11 +505,13 @@ _descriptor_setstate_cases = _wrap_in_containers(
 
 
 _memo_type_error = _wrap_in_containers(
-    "evil:__deepcopy__:memo_type_guard:TypeError", DeepcopyGatekeeper(TypeError)
+    "evil:__deepcopy__:memo_type_guard:TypeError",
+    DeepcopyGatekeeper(TypeError("memo is expected to be a dict")),
 )
 
 _memo_assertion_error = _wrap_in_containers(
-    "evil:__deepcopy__:memo_type_guard:AssertionError", DeepcopyGatekeeper(AssertionError)
+    "evil:__deepcopy__:memo_type_guard:AssertionError",
+    DeepcopyGatekeeper(AssertionError("memo is expected to be a dict")),
 )
 
 EVIL_CASES: tuple[Case, ...] = (
